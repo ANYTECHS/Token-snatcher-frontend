@@ -1,4 +1,3 @@
-# Token-snatcher-frontend
 Token Snatcher (Whack-to-Earn)
 
 A decentralized arcade game where players “snatch” tokens before they disappear and earn real on-chain rewards.
