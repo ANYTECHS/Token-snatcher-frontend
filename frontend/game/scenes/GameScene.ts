@@ -40,6 +40,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.resetState();
+    this.spawnPoints = generateGridSpawnPoints();
 
     this.background = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0f172a);
     this.background.setOrigin(0, 0);
