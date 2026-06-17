@@ -37,6 +37,17 @@ export function addScore(state: ScoreState, basePoints: number, now: number): Sc
   };
 }
 
+export function applyPenalty(state: ScoreState, penaltyBasePoints: number, now: number): ScoreState {
+  // Penalty breaks combo so it can't be amplified by score multipliers.
+  const newScore = Math.max(0, state.score + penaltyBasePoints);
+  return {
+    score: newScore,
+    combo: 0,
+    lastSnatchTime: now,
+  };
+}
+
 export function resetScore(): ScoreState {
   return createScoreState();
 }
+

@@ -1,7 +1,8 @@
 import * as Phaser from 'phaser';
 import { TOKEN_CONFIG, TOKEN_RADIUS, SPAWN_INTERVAL_MS, RANKED_DURATION_SECONDS, FREE_DURATION_SECONDS, INITIAL_SPAWN_DELAY_MS, MAX_TOKENS_ON_SCREEN, DIFFICULTY_INTERVAL_SECONDS, DIFFICULTY_SPAWN_REDUCTION, MIN_SPAWN_INTERVAL_MS, GAME_WIDTH, GAME_HEIGHT } from '@/utils/constants';
-import { createScoreState, addScore, resetScore, ScoreState } from '@/utils/scoring';
+import { createScoreState, addScore, resetScore, ScoreState, applyPenalty } from '@/utils/scoring';
 import { generateGridSpawnPoints, pickRandomTokenType, selectSpawnPositions, positionKey, SpawnPoint } from '@/utils/spawnLogic';
+
 
 interface GameConfig {
   mode: 'ranked' | 'free';
@@ -145,27 +146,46 @@ export class GameScene extends Phaser.Scene {
 
     const container = this.add.container(pos.x, pos.y);
 
+    const isPenalty = type === 'penalty';
+
     const circle = this.add.circle(0, 0, TOKEN_RADIUS, config.color);
-    circle.setStrokeStyle(2, 0xffffff, 0.5);
+    circle.setStrokeStyle(2, 0xffffff, isPenalty ? 0.9 : 0.5);
 
-    const inner = this.add.circle(0, 0, TOKEN_RADIUS - 6, config.color, 0.3);
-    inner.setStrokeStyle(1, config.color, 0.8);
+    const inner = this.add.circle(0, 0, TOKEN_RADIUS - 6, config.color, isPenalty ? 0.55 : 0.3);
+    inner.setStrokeStyle(1, config.color, isPenalty ? 1 : 0.8);
 
-    const label = this.add.text(0, 0, '$', {
-      fontSize: '24px',
+    // Distinct penalty styling: a warning ring + different center label.
+    const warningRing = isPenalty
+      ? this.add.circle(0, 0, TOKEN_RADIUS - 2, 0xffffff, 0);
+    if (isPenalty && warningRing) {
+      warningRing.setStrokeStyle(4, 0xf97316, 0.9);
+      warningRing.setScale(1);
+    }
+
+    const labelText = isPenalty ? '!' : '$';
+    const label = this.add.text(0, 0, labelText, {
+      fontSize: '26px',
       color: '#ffffff',
       fontFamily: 'monospace',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    container.add([circle, inner, label]);
+    container.add(isPenalty && warningRing ? [circle, inner, warningRing, label] : [circle, inner, label]);
+
     container.setSize(TOKEN_RADIUS * 2, TOKEN_RADIUS * 2);
     container.setInteractive(
       new Phaser.Geom.Circle(0, 0, TOKEN_RADIUS),
       Phaser.Geom.Circle.Contains,
     );
 
-    container.on('pointerdown', () => this.snatchToken(container, config.points));
+    container.on('pointerdown', () => {
+      if (type === 'penalty') {
+        this.penaltyToken(container, config.points);
+      } else {
+        this.snatchToken(container, config.points);
+      }
+    });
+
     container.on('pointerover', () => {
       circle.setScale(1.15);
       inner.setScale(1.15);
@@ -198,6 +218,20 @@ export class GameScene extends Phaser.Scene {
 
     this.removeToken(container);
   }
+
+  private penaltyToken(container: Phaser.GameObjects.Container, penaltyBasePoints: number): void {
+    if (this.isGameOver) return;
+
+    const now = Date.now();
+    this.scoreState = applyPenalty(this.scoreState, penaltyBasePoints, now);
+
+    this.updateUI();
+
+    this.onScoreUpdate?.(this.scoreState.score, this.scoreState.combo);
+
+    this.removeToken(container);
+  }
+
 
   private removeToken(container: Phaser.GameObjects.Container): void {
     const key = positionKey(container.x, container.y);
