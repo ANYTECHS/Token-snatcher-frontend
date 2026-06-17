@@ -1,58 +1,62 @@
-import Link from "next/link";
+"use client";
+
+import Image from "next/image";
+import { WalletButton } from "../components/WalletButton";
+import { useWallet } from "../context/WalletContext";
 
 export default function Home() {
+  const { isConnected } = useWallet();
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-65px)] px-4">
-      <div className="text-center max-w-2xl">
-        <h1 className="text-5xl font-bold font-mono mb-4">
-          Token Snatcher
+    <div className="flex min-h-screen flex-col items-center bg-zinc-50 font-sans dark:bg-black p-8">
+      <header className="w-full max-w-4xl flex items-center justify-between py-6">
+        <div className="flex items-center gap-2">
+          <Image
+            className="dark:invert"
+            src="/next.svg"
+            alt="Next.js logo"
+            width={100}
+            height={20}
+            priority
+          />
+          <span className="font-bold text-xl ml-4">Token Snatcher</span>
+        </div>
+        <WalletButton />
+      </header>
+
+      <main className="flex w-full max-w-4xl flex-col items-center justify-center flex-1 py-16 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-black dark:text-zinc-50 mb-6">
+          Ready to Snatch Tokens?
         </h1>
-        <p className="text-lg text-[#94a3b8] mb-2 font-mono">
-          Snatch tokens before they disappear. Earn real on-chain rewards.
-        </p>
-        <p className="text-sm text-[#64748b] mb-10 font-mono">
-          A decentralized whack-to-earn arcade game
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-          <Link
-            href="/free"
-            className="px-8 py-4 bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white font-bold rounded-xl hover:from-[#2563eb] hover:to-[#7c3aed] transition-all text-lg font-mono"
-          >
-            Free Play
-          </Link>
-          <Link
-            href="/ranked"
-            className="px-8 py-4 bg-gradient-to-r from-[#f59e0b] to-[#ef4444] text-white font-bold rounded-xl hover:from-[#d97706] hover:to-[#dc2626] transition-all text-lg font-mono"
-          >
-            Ranked Mode
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
-          <div className="bg-[#1e293b] rounded-xl p-6 border border-[#334155]">
-            <div className="text-2xl mb-2">🎮</div>
-            <h3 className="font-bold font-mono mb-2">Play</h3>
-            <p className="text-sm text-[#94a3b8] font-mono">
-              Snatch tokens as they appear on screen. Chain combos for bonus points.
+        
+        {isConnected ? (
+          <div className="p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 w-full max-w-md">
+            <h2 className="text-2xl font-semibold mb-4 text-green-600 dark:text-green-400">
+              Wallet Connected!
+            </h2>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-8">
+              You are ready to perform blockchain actions and start playing the game.
             </p>
+            <button className="px-8 py-3 w-full bg-black dark:bg-white text-white dark:text-black font-semibold rounded-full hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors">
+              Start Ranked Game
+            </button>
           </div>
-          <div className="bg-[#1e293b] rounded-xl p-6 border border-[#334155]">
-            <div className="text-2xl mb-2">⛓️</div>
-            <h3 className="font-bold font-mono mb-2">Earn</h3>
-            <p className="text-sm text-[#94a3b8] font-mono">
-              Submit your score on-chain. Smart contract validates & distributes rewards.
+        ) : (
+          <div className="p-8 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 w-full max-w-md">
+            <h2 className="text-2xl font-semibold mb-4 text-amber-600 dark:text-amber-500">
+              Connection Required
+            </h2>
+            <p className="text-zinc-600 dark:text-zinc-400 mb-8">
+              You must reconnect your wallet before performing any blockchain actions.
             </p>
+            <div className="opacity-50 cursor-not-allowed">
+              <button disabled className="px-8 py-3 w-full bg-zinc-300 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 font-semibold rounded-full">
+                Start Ranked Game (Disabled)
+              </button>
+            </div>
           </div>
-          <div className="bg-[#1e293b] rounded-xl p-6 border border-[#334155]">
-            <div className="text-2xl mb-2">🏆</div>
-            <h3 className="font-bold font-mono mb-2">Compete</h3>
-            <p className="text-sm text-[#94a3b8] font-mono">
-              Climb the global leaderboard. Unlock NFT multipliers for higher earnings.
-            </p>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </div>
   );
 }
