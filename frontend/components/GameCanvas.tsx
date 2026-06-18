@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import * as Phaser from 'phaser';
+import { BootScene } from '@/game/scenes/BootScene';
 import { GameScene } from '@/game/scenes/GameScene';
 import { ResultScene } from '@/game/scenes/ResultScene';
 import { GAME_WIDTH, GAME_HEIGHT } from '@/utils/constants';
@@ -40,7 +41,7 @@ export default function GameCanvas({ mode, onScoreUpdate, onGameOver }: GameCanv
       height: GAME_HEIGHT,
       parent: containerRef.current,
       backgroundColor: '#0f172a',
-      scene: [GameScene, ResultScene],
+      scene: [BootScene, GameScene, ResultScene],
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -51,7 +52,7 @@ export default function GameCanvas({ mode, onScoreUpdate, onGameOver }: GameCanv
     gameRef.current = phaserGame;
 
     phaserGame.events.on('ready', () => {
-      phaserGame.scene.start('GameScene', {
+      phaserGame.scene.start('BootScene', {
         mode,
         onScoreUpdate: handleScoreUpdate,
         onGameOver: handleGameOver,
