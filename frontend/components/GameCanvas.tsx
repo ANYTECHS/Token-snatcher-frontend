@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import * as Phaser from 'phaser';
-import { GameScene } from '@/game/scenes/GameScene';
-import { ResultScene } from '@/game/scenes/ResultScene';
+import { createPhaserGame } from '@/game/phaser/createPhaserGame';
+
 import { GAME_WIDTH, GAME_HEIGHT } from '@/utils/constants';
 
 interface GameCanvasProps {
+
   mode: 'ranked' | 'free';
   onScoreUpdate?: (score: number, combo: number) => void;
   onGameOver?: (finalScore: number) => void;
@@ -14,10 +14,14 @@ interface GameCanvasProps {
 
 export default function GameCanvas({ mode, onScoreUpdate, onGameOver }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const gameRef = useRef<Phaser.Game | null>(null);
-  const gameSceneRef = useRef<GameScene | null>(null);
+  const gameRef = useRef<ReturnType<typeof createPhaserGame> | null>(null);
+  const didInitRef = useRef(false);
+
+
+
 
   const handleGameOver = useCallback(
+
     (finalScore: number) => {
       onGameOver?.(finalScore);
     },
@@ -32,31 +36,19 @@ export default function GameCanvas({ mode, onScoreUpdate, onGameOver }: GameCanv
   );
 
   useEffect(() => {
-    if (!containerRef.current || gameRef.current) return;
+    if (!containerRef.current || didInitRef.current || gameRef.current) return;
+    didInitRef.current = true;
 
-    const config: Phaser.Types.Core.GameConfig = {
-      type: Phaser.AUTO,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+
+    const phaserGame = createPhaserGame({
       parent: containerRef.current,
-      backgroundColor: '#0f172a',
-      scene: [GameScene, ResultScene],
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-    };
+      mode,
+      onScoreUpdate: handleScoreUpdate,
+      onGameOver: handleGameOver,
+    });
 
-    const phaserGame = new Phaser.Game(config);
     gameRef.current = phaserGame;
 
-    phaserGame.events.on('ready', () => {
-      phaserGame.scene.start('GameScene', {
-        mode,
-        onScoreUpdate: handleScoreUpdate,
-        onGameOver: handleGameOver,
-      });
-    });
 
     return () => {
       phaserGame.destroy(true);
