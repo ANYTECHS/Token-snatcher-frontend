@@ -1,7 +1,23 @@
 import * as Phaser from 'phaser';
-import { TOKEN_CONFIG, TOKEN_RADIUS, SPAWN_INTERVAL_MS, RANKED_DURATION_SECONDS, FREE_DURATION_SECONDS, INITIAL_SPAWN_DELAY_MS, MAX_TOKENS_ON_SCREEN, DIFFICULTY_INTERVAL_SECONDS, DIFFICULTY_SPAWN_REDUCTION, MIN_SPAWN_INTERVAL_MS, GAME_WIDTH, GAME_HEIGHT } from '@/utils/constants';
+import {
+  TOKEN_CONFIG,
+  TOKEN_RADIUS,
+  SPAWN_INTERVAL_MS,
+  RANKED_DURATION_SECONDS,
+  FREE_DURATION_SECONDS,
+  INITIAL_SPAWN_DELAY_MS,
+  MAX_TOKENS_ON_SCREEN,
+  DIFFICULTY_INTERVAL_SECONDS,
+  DIFFICULTY_SPAWN_REDUCTION,
+  MIN_SPAWN_INTERVAL_MS,
+  GAME_WIDTH,
+  GAME_HEIGHT,
+  GOLDEN_TOKEN_BONUS_POINTS,
+  GOLDEN_TOKEN_MULTIPLIER,
+} from '@/utils/constants';
 import { createScoreState, addScore, resetScore, ScoreState } from '@/utils/scoring';
 import { generateGridSpawnPoints, pickRandomTokenType, selectSpawnPositions, positionKey, SpawnPoint } from '@/utils/spawnLogic';
+
 
 interface GameConfig {
   mode: 'ranked' | 'free';
@@ -26,7 +42,9 @@ export class GameScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
+  private goldenLabelText?: Phaser.GameObjects.Text;
   private background!: Phaser.GameObjects.Rectangle;
+
 
   constructor() {
     super({ key: 'GameScene' });
@@ -142,6 +160,7 @@ export class GameScene extends Phaser.Scene {
   private createToken(pos: SpawnPoint): void {
     const type = pickRandomTokenType();
     const config = TOKEN_CONFIG[type];
+    const isGolden = Boolean(config.isGolden);
 
     const container = this.add.container(pos.x, pos.y);
 
@@ -151,91 +170,171 @@ export class GameScene extends Phaser.Scene {
     const inner = this.add.circle(0, 0, TOKEN_RADIUS - 6, config.color, 0.3);
     inner.setStrokeStyle(1, config.color, 0.8);
 
-    const label = this.add.text(0, 0, '$', {
+    // Distinct golden visuals: glow ring + animated sparkle dots
+    const goldenRing = isGolden ? this.add.circle(0, 0, TOKEN_RADIUS + 10, 0xfbbf24, 0.0) : null;
+    if (goldenRing) {
+      goldenRing.setStrokeStyle(4, 0xfbbf24, 0.9);
+      this.tweens.add({
+        targets: goldenRing,
+        alpha: { from: 0.2, to: 1 },
+        duration: 450,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
+
+    const label = this.add.text(0, 0, isGolden ? 'G' : '$', {
       fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'monospace',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
-    container.add([circle, inner, label]);
+    container.add(isGolden ? [circle, inner, goldenRing!, label] : [circle, inner, label]);
     container.setSize(TOKEN_RADIUS * 2, TOKEN_RADIUS * 2);
     container.setInteractive(
       new Phaser.Geom.Circle(0, 0, TOKEN_RADIUS),
       Phaser.Geom.Circle.Contains,
     );
 
-    container.on('pointerdown', () => this.snatchToken(container, config.points, config.color));
+    container.on('pointerdown', () =>
+      this.snatchToken(container, config.points, isGolden),
+    );
     container.on('pointerover', () => {
       circle.setScale(1.15);
       inner.setScale(1.15);
       label.setScale(1.15);
+      goldenRing?.setScale?.(1.03);
     });
     container.on('pointerout', () => {
       circle.setScale(1);
       inner.setScale(1);
       label.setScale(1);
+      goldenRing?.setScale?.(1);
     });
 
     const key = positionKey(pos.x, pos.y);
     this.occupiedPositions.add(key);
     this.tokens.push(container);
 
-    this.time.delayedCall(config.lifetimeMs, () => {
-      this.removeToken(container);
+    const EXPIRE_ANIM_MS = 300;
+    const WARN_THRESHOLD = 0.4; // start warning pulse at 40% lifetime remaining
+
+    // Warning pulse: starts when token is near expiry
+    this.time.delayedCall(config.lifetimeMs * (1 - WARN_THRESHOLD), () => {
+      if (!container.active) return;
+      this.tweens.add({
+        targets: container,
+        scaleX: 0.85,
+        scaleY: 0.85,
+        duration: 120,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
+
+    // Expire: fade + shrink, then destroy
+    this.time.delayedCall(config.lifetimeMs - EXPIRE_ANIM_MS, () => {
+      if (!container.active) return;
+      this.tweens.killTweensOf(container);
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        scaleX: 0,
+        scaleY: 0,
+        duration: EXPIRE_ANIM_MS,
+        ease: 'Back.easeIn',
+        onComplete: () => this.removeToken(container),
+      });
     });
   }
 
-  private snatchToken(container: Phaser.GameObjects.Container, basePoints: number, color: number): void {
+
+  private snatchToken(
+    container: Phaser.GameObjects.Container,
+    basePoints: number,
+    isGolden = false,
+  ): void {
     if (this.isGameOver) return;
 
     const now = Date.now();
-    const { state, earnedPoints } = addScore(this.scoreState, basePoints, now);
-    this.scoreState = state;
-
+    this.scoreState = addScore(this.scoreState, basePoints, now);
     this.updateUI();
-
-    this.showScorePopup(container.x, container.y, earnedPoints, color);
-
     this.onScoreUpdate?.(this.scoreState.score, this.scoreState.combo);
 
+    // Deregister immediately so it can't be double-clicked
+    const key = positionKey(container.x, container.y);
+    this.occupiedPositions.delete(key);
+    const idx = this.tokens.indexOf(container);
+    if (idx !== -1) this.tokens.splice(idx, 1);
+    container.disableInteractive();
+
+    this.tweens.killTweensOf(container);
+    this.tweens.add({
+      targets: container,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      onComplete: () => container.destroy(),
+    });
+
+    const awardedBasePoints = isGolden
+      ? Math.round((basePoints + GOLDEN_TOKEN_BONUS_POINTS) * GOLDEN_TOKEN_MULTIPLIER)
+      : basePoints;
+
+    this.scoreState = addScore(this.scoreState, awardedBasePoints, now);
+    this.updateUI();
+
+    if (isGolden) {
+      this.showGoldenLabel(container.x, container.y);
+    }
+
+    this.onScoreUpdate?.(this.scoreState.score, this.scoreState.combo);
     this.removeToken(container);
   }
 
-  private showScorePopup(x: number, y: number, points: number, color: number): void {
-    const colorStr = '#' + color.toString(16).padStart(6, '0');
-    const popup = this.add.text(x, y, `+${points}`, {
-      fontSize: '22px',
-      color: colorStr,
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5, 0.5).setDepth(1000);
-
-    popup.setScale(0.5);
-
-    this.tweens.add({
-      targets: popup,
-      y: y - 50,
-      alpha: 0,
-      scale: 1,
-      duration: 700,
-      ease: 'Power2',
-      onComplete: () => popup.destroy(),
-    });
-  }
 
   private removeToken(container: Phaser.GameObjects.Container): void {
+    if (!container.active) return;
     const key = positionKey(container.x, container.y);
     this.occupiedPositions.delete(key);
 
     const idx = this.tokens.indexOf(container);
-    if (idx !== -1) {
-      this.tokens.splice(idx, 1);
-    }
+    if (idx !== -1) this.tokens.splice(idx, 1);
 
+    this.tweens.killTweensOf(container);
     container.destroy();
+  }
+
+  private showGoldenLabel(x: number, y: number): void {
+    const bonusText = `GOLDEN! +${GOLDEN_TOKEN_BONUS_POINTS}`;
+
+    // Destroy previous label if still present
+    this.goldenLabelText?.destroy();
+
+    const label = this.add.text(x, y - TOKEN_RADIUS - 12, bonusText, {
+      fontSize: '16px',
+      color: '#fbbf24',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+    });
+    label.setOrigin(0.5, 0.5);
+    this.goldenLabelText = label;
+
+    this.tweens.add({
+      targets: label,
+      y: y - TOKEN_RADIUS - 42,
+      alpha: { from: 1, to: 0 },
+      duration: 700,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        label.destroy();
+        if (this.goldenLabelText === label) this.goldenLabelText = undefined;
+      },
+    });
   }
 
   private updateUI(): void {
@@ -248,6 +347,7 @@ export class GameScene extends Phaser.Scene {
       this.comboText.setText('');
     }
   }
+
 
   private endGame(): void {
     if (this.isGameOver) return;
