@@ -217,6 +217,18 @@ export class GameScene extends Phaser.Scene {
     this.occupiedPositions.add(key);
     this.tokens.push(container);
 
+    // Spawn-in animation: scale + fade from 0
+    container.setScale(0);
+    container.setAlpha(0);
+    this.tweens.add({
+      targets: container,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 220,
+      ease: 'Back.easeOut',
+    });
+
     const EXPIRE_ANIM_MS = 300;
     const WARN_THRESHOLD = 0.4; // start warning pulse at 40% lifetime remaining
 
