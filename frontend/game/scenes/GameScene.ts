@@ -260,7 +260,7 @@ export class GameScene extends Phaser.Scene {
 
     this.onErrorSound?.();
 
-    if (this.spawnTimer) this.spawnTimer.destroy();
+    this.spawnEngine?.stop();
 
     for (const token of [...this.tokens]) {
       this.removeToken(token);
