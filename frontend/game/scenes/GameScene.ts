@@ -217,8 +217,36 @@ export class GameScene extends Phaser.Scene {
     this.occupiedPositions.add(key);
     this.tokens.push(container);
 
-    this.time.delayedCall(config.lifetimeMs, () => {
-      this.removeToken(container);
+    const EXPIRE_ANIM_MS = 300;
+    const WARN_THRESHOLD = 0.4; // start warning pulse at 40% lifetime remaining
+
+    // Warning pulse: starts when token is near expiry
+    this.time.delayedCall(config.lifetimeMs * (1 - WARN_THRESHOLD), () => {
+      if (!container.active) return;
+      this.tweens.add({
+        targets: container,
+        scaleX: 0.85,
+        scaleY: 0.85,
+        duration: 120,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    });
+
+    // Expire: fade + shrink, then destroy
+    this.time.delayedCall(config.lifetimeMs - EXPIRE_ANIM_MS, () => {
+      if (!container.active) return;
+      this.tweens.killTweensOf(container);
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        scaleX: 0,
+        scaleY: 0,
+        duration: EXPIRE_ANIM_MS,
+        ease: 'Back.easeIn',
+        onComplete: () => this.removeToken(container),
+      });
     });
   }
 
@@ -231,6 +259,27 @@ export class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
 
     const now = Date.now();
+    this.scoreState = addScore(this.scoreState, basePoints, now);
+    this.updateUI();
+    this.onScoreUpdate?.(this.scoreState.score, this.scoreState.combo);
+
+    // Deregister immediately so it can't be double-clicked
+    const key = positionKey(container.x, container.y);
+    this.occupiedPositions.delete(key);
+    const idx = this.tokens.indexOf(container);
+    if (idx !== -1) this.tokens.splice(idx, 1);
+    container.disableInteractive();
+
+    this.tweens.killTweensOf(container);
+    this.tweens.add({
+      targets: container,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      alpha: 0,
+      duration: 200,
+      ease: 'Quad.easeOut',
+      onComplete: () => container.destroy(),
+    });
 
     const awardedBasePoints = isGolden
       ? Math.round((basePoints + GOLDEN_TOKEN_BONUS_POINTS) * GOLDEN_TOKEN_MULTIPLIER)
@@ -249,14 +298,14 @@ export class GameScene extends Phaser.Scene {
 
 
   private removeToken(container: Phaser.GameObjects.Container): void {
+    if (!container.active) return;
     const key = positionKey(container.x, container.y);
     this.occupiedPositions.delete(key);
 
     const idx = this.tokens.indexOf(container);
-    if (idx !== -1) {
-      this.tokens.splice(idx, 1);
-    }
+    if (idx !== -1) this.tokens.splice(idx, 1);
 
+    this.tweens.killTweensOf(container);
     container.destroy();
   }
 
