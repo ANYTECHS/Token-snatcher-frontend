@@ -7,7 +7,7 @@ export const WalletButton = () => {
   const { address, isConnected, connect, disconnect, error, isLoading } = useWallet();
 
   const formatAddress = (addr: string) => {
-    return `${addr.substring(0, 5)}...${addr.substring(addr.length - 4)}`;
+    return `${addr.substring(0, 4)}...${addr.substring(addr.length - 4)}`;
   };
 
   const statusConfig = useMemo(() => {
@@ -47,6 +47,11 @@ export const WalletButton = () => {
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 font-mono">
               {formatAddress(address)}
             </span>
+            {showTooltip && (
+              <div className="absolute top-full left-0 mt-1 px-2 py-1 text-xs bg-gray-900 dark:bg-zinc-950 text-white dark:text-zinc-100 rounded border border-gray-700 dark:border-zinc-700 whitespace-nowrap z-50">
+                {address}
+              </div>
+            )}
           </div>
           <button
             onClick={disconnect}
