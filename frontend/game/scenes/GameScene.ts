@@ -43,6 +43,7 @@ export class GameScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private goldenLabelText?: Phaser.GameObjects.Text;
   private background!: Phaser.GameObjects.Rectangle;
+  private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() {
     super({ key: 'GameScene' });
