@@ -27,6 +27,7 @@ export class GameScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private timerText!: Phaser.GameObjects.Text;
   private background!: Phaser.GameObjects.Rectangle;
+  private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -41,6 +42,21 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.resetState();
     this.spawnPoints = generateGridSpawnPoints();
+
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(4, 4, 4);
+    g.generateTexture('particle', 8, 8);
+    g.destroy();
+
+    this.particleEmitter = this.add.particles(0, 0, 'particle', {
+      lifespan: 600,
+      speed: { min: 50, max: 200 },
+      scale: { start: 1, end: 0 },
+      alpha: { start: 1, end: 0 },
+      emitting: false
+    });
+    this.particleEmitter.setDepth(20);
 
     this.background = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x0f172a);
     this.background.setOrigin(0, 0);
@@ -219,33 +235,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private playHitFeedback(x: number, y: number, color: number, points: number): void {
-    const burst = this.add.container(x, y);
-    burst.setDepth(20);
+    this.particleEmitter.setParticleTint(color);
+    this.particleEmitter.emitParticleAt(x, y, 12);
 
-    const outerRing = this.add.circle(0, 0, TOKEN_RADIUS * 0.7, color, 0.18);
-    outerRing.setStrokeStyle(3, 0xffffff, 0.9);
-
-    const innerGlow = this.add.circle(0, 0, TOKEN_RADIUS * 0.28, 0xffffff, 0.5);
-
-    const pointsLabel = this.add.text(0, -TOKEN_RADIUS * 0.95, `+${points}`, {
-      fontSize: '18px',
+    const pointsLabel = this.add.text(x, y - TOKEN_RADIUS * 0.5, `+${points}`, {
+      fontSize: '24px',
       color: '#ffffff',
       fontFamily: 'monospace',
       fontStyle: 'bold',
-    }).setOrigin(0.5, 0.5);
-
-    burst.add([outerRing, innerGlow, pointsLabel]);
+    }).setOrigin(0.5, 0.5).setDepth(21);
 
     this.tweens.add({
-      targets: burst,
-      scale: { from: 0.75, to: 1.5 },
+      targets: pointsLabel,
+      y: y - TOKEN_RADIUS - 40,
       alpha: { from: 1, to: 0 },
-      duration: 420,
-      ease: 'Quad.easeOut',
-      onComplete: () => burst.destroy(),
+      duration: 600,
+      ease: 'Cubic.easeOut',
+      onComplete: () => pointsLabel.destroy(),
     });
-
-    this.cameras.main.flash(45, 255, 255, 255, false);
   }
 
   private updateUI(): void {
