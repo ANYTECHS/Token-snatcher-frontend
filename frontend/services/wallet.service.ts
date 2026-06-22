@@ -76,4 +76,21 @@ export class WalletService {
       localStorage.setItem(this.STORAGE_KEY, address);
     }
   }
+
+  /**
+   * Silently attempts to reconnect a previously authorized wallet
+   * without showing any popups. Returns the address if still authorized, or null.
+   */
+  static async attemptSilentReconnect(): Promise<string | null> {
+    try {
+      const connected = await isConnected();
+      if (!connected?.isConnected) {
+        return null;
+      }
+      const { address } = await getAddress();
+      return address || null;
+    } catch {
+      return null;
+    }
+  }
 }

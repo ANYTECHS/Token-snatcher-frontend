@@ -21,11 +21,25 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Restore cached wallet address on mount
-    const cachedAddress = WalletService.getCachedAddress();
-    if (cachedAddress) {
-      setAddress(cachedAddress);
-    }
+    const restoreWallet = async () => {
+      const cachedAddress = WalletService.getCachedAddress();
+      if (!cachedAddress) return;
+
+      setIsLoading(true);
+      try {
+        const address = await WalletService.attemptSilentReconnect();
+        if (address === cachedAddress) {
+          setAddress(address);
+          return;
+        }
+      } catch {
+        // Fall through to disconnect
+      }
+      WalletService.disconnectWallet();
+      setAddress(null);
+    };
+
+    restoreWallet().finally(() => setIsLoading(false));
   }, []);
 
   const connect = async () => {
