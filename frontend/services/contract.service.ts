@@ -1,3 +1,5 @@
+import { WalletService } from './wallet.service';
+
 export interface SessionResult {
   sessionId: string;
   success: boolean;
@@ -7,6 +9,21 @@ export interface SessionResult {
 
 const CONTRACT_ID = process.env.NEXT_PUBLIC_CONTRACT_ID ?? '';
 
+/**
+ * Validates network before executing blockchain operations
+ * @throws Error if network is invalid
+ */
+async function validateNetwork(): Promise<void> {
+  const isNetworkValid = await WalletService.isNetworkValid();
+  if (!isNetworkValid) {
+    const currentNetwork = await WalletService.getCurrentNetwork();
+    const supportedNetwork = WalletService.getSupportedNetwork();
+    throw new Error(
+      `Invalid network. Your wallet is on "${currentNetwork}" but this app requires "${supportedNetwork}". Please switch your network in Freighter settings.`
+    );
+  }
+}
+
 export async function startSession(playerAddress: string): Promise<string | null> {
   if (!CONTRACT_ID) {
     console.warn('Contract ID not configured. Session ID will be simulated.');
@@ -14,6 +31,8 @@ export async function startSession(playerAddress: string): Promise<string | null
   }
 
   try {
+    await validateNetwork();
+    
     if (typeof window !== 'undefined' && 'stellar' in window) {
       const result = await (window as any).stellar.request({
         method: 'invokeContract',
@@ -27,6 +46,7 @@ export async function startSession(playerAddress: string): Promise<string | null
     }
   } catch (error) {
     console.error('Failed to start session:', error);
+    throw error;
   }
 
   return null;
@@ -42,6 +62,8 @@ export async function submitScore(
   }
 
   try {
+    await validateNetwork();
+    
     if (typeof window !== 'undefined' && 'stellar' in window) {
       const result = await (window as any).stellar.request({
         method: 'invokeContract',
@@ -65,6 +87,8 @@ export async function claimReward(sessionId: string): Promise<boolean> {
   if (!CONTRACT_ID) return false;
 
   try {
+    await validateNetwork();
+    
     if (typeof window !== 'undefined' && 'stellar' in window) {
       await (window as any).stellar.request({
         method: 'invokeContract',
@@ -87,6 +111,8 @@ export async function getLeaderboard(): Promise<{ address: string; score: number
   if (!CONTRACT_ID) return [];
 
   try {
+    await validateNetwork();
+    
     if (typeof window !== 'undefined' && 'stellar' in window) {
       const result = await (window as any).stellar.request({
         method: 'invokeContract',

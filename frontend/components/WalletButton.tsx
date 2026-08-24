@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { useWallet } from "../context/WalletContext";
+import { NetworkWarning } from "./NetworkWarning";
 
 export const WalletButton = () => {
   const { address, isConnected, connect, disconnect, error, isLoading } = useWallet();
@@ -37,6 +38,7 @@ export const WalletButton = () => {
   if (isConnected && address) {
     return (
       <div className="flex flex-col gap-2">
+        <NetworkWarning />
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 ring-2 ${statusConfig.ringClass}`}>
             <span className={`w-2 h-2 rounded-full ${statusConfig.dotClass}`}></span>

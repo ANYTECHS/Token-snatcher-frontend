@@ -11,6 +11,9 @@ interface WalletContextProps {
   disconnect: () => void;
   error: string | null;
   isLoading: boolean;
+  network: string | null;
+  isNetworkValid: boolean;
+  supportedNetwork: string;
 }
 
 const WalletContext = createContext<WalletContextProps | undefined>(undefined);
@@ -19,6 +22,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [network, setNetwork] = useState<string | null>(null);
+  const [isNetworkValid, setIsNetworkValid] = useState(false);
+  const supportedNetwork = WalletService.getSupportedNetwork();
 
   useEffect(() => {
     const restoreWallet = async () => {
@@ -30,6 +36,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         const address = await WalletService.attemptSilentReconnect();
         if (address === cachedAddress) {
           setAddress(address);
+          // Check network after reconnecting
+          const currentNetwork = await WalletService.getCurrentNetwork();
+          setNetwork(currentNetwork);
+          const networkValid = await WalletService.isNetworkValid();
+          setIsNetworkValid(networkValid);
           return;
         }
       } catch {
@@ -37,6 +48,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
       WalletService.disconnectWallet();
       setAddress(null);
+      setNetwork(null);
+      setIsNetworkValid(false);
     };
 
     restoreWallet().finally(() => setIsLoading(false));
@@ -50,6 +63,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       if (pubKey) {
         setAddress(pubKey);
         WalletService.cacheAddress(pubKey);
+        // Check network after connecting
+        const currentNetwork = await WalletService.getCurrentNetwork();
+        setNetwork(currentNetwork);
+        const networkValid = await WalletService.isNetworkValid();
+        setIsNetworkValid(networkValid);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to connect wallet";
@@ -63,6 +81,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const disconnect = () => {
     setAddress(null);
     setError(null);
+    setNetwork(null);
+    setIsNetworkValid(false);
     WalletService.disconnectWallet();
   };
 
@@ -75,7 +95,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         connect, 
         disconnect,
         error,
-        isLoading
+        isLoading,
+        network,
+        isNetworkValid,
+        supportedNetwork
       }}
     >
       {children}
