@@ -20,6 +20,27 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Create a `.env.local` file in the root directory to configure the application:
+
+```env
+# Stellar network configuration (optional, defaults to "PUBLIC")
+NEXT_PUBLIC_STELLAR_NETWORK=PUBLIC
+
+# Stellar smart contract ID (optional, for blockchain interactions)
+NEXT_PUBLIC_CONTRACT_ID=your_contract_id_here
+```
+
+### Network Configuration
+
+- `NEXT_PUBLIC_STELLAR_NETWORK`: The Stellar network that the wallet must be connected to for gameplay interactions.
+  - `PUBLIC` - Stellar mainnet (default)
+  - `TESTNET` - Stellar testnet
+  - If not set, defaults to `PUBLIC`
+
+The application validates that the connected Freighter wallet is operating on the correct network before allowing any blockchain interactions (starting sessions, submitting scores, claiming rewards, etc.). Users will see a warning if their wallet is on an unsupported network.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

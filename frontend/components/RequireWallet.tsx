@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@/context/WalletContext";
+import { NetworkWarning } from "./NetworkWarning";
 
 export default function RequireWallet({
   children,
@@ -14,7 +15,7 @@ export default function RequireWallet({
   loadingFallback?: ReactNode;
 }) {
   const router = useRouter();
-  const { isConnected, connectionStatus } = useWallet();
+  const { isConnected, connectionStatus, isNetworkValid } = useWallet();
 
   const isChecking = useMemo(
     () => connectionStatus === "loading",
@@ -49,5 +50,10 @@ export default function RequireWallet({
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <NetworkWarning />
+      {children}
+    </>
+  );
 }
