@@ -4,10 +4,15 @@ import {
   getAddress,
   getNetwork,
 } from "@stellar/freighter-api";
+import {
+  PersistedWalletSession,
+  DEFAULT_SESSION_TTL_MS,
+  saveWalletSession,
+  loadWalletSession,
+  clearWalletSession,
+} from "../utils/walletSession";
 
 export class WalletService {
-  private static readonly STORAGE_KEY = "freighter_connected_address";
-  
   // Supported Stellar network (can be configured via environment variable)
   private static readonly SUPPORTED_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "PUBLIC";
 
@@ -47,6 +52,9 @@ export class WalletService {
         throw new Error("Failed to retrieve wallet address.");
       }
 
+      const currentNetwork = await this.getCurrentNetwork();
+      saveWalletSession(address, currentNetwork, DEFAULT_SESSION_TTL_MS);
+
       return address;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to connect wallet";
@@ -56,44 +64,61 @@ export class WalletService {
   }
 
   /**
-   * Disconnects the wallet by clearing local storage
+   * Disconnects the wallet by clearing persisted session state
    */
   static disconnectWallet(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+    clearWalletSession();
   }
 
   /**
-   * Gets the cached wallet address from local storage
+   * Gets the active non-expired wallet session from local storage
+   */
+  static getActiveSession(): PersistedWalletSession | null {
+    return loadWalletSession();
+  }
+
+  /**
+   * Gets the cached wallet address from local storage if the session has not expired
    */
   static getCachedAddress(): string | null {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(this.STORAGE_KEY);
-    }
-    return null;
+    const session = loadWalletSession();
+    return session ? session.address : null;
   }
 
   /**
-   * Caches the wallet address to local storage
+   * Caches the wallet address and optional network into a TTL-bounded local session
    */
-  static cacheAddress(address: string): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(this.STORAGE_KEY, address);
-    }
+  static cacheAddress(address: string, network: string | null = null, ttlMs: number = DEFAULT_SESSION_TTL_MS): void {
+    saveWalletSession(address, network, ttlMs);
   }
 
   /**
    * Silently attempts to reconnect a previously authorized wallet
-   * without showing any popups. Returns the address if still authorized, or null.
+   * without showing any popups. Clears expired or revoked sessions automatically.
    */
   static async attemptSilentReconnect(): Promise<string | null> {
     try {
+      const session = loadWalletSession();
+      if (!session) {
+        return null;
+      }
+
       const connected = await isConnected();
       if (!connected?.isConnected) {
+        clearWalletSession();
         return null;
       }
       const { address } = await getAddress();
-      return address || null;
+      if (!address || address !== session.address) {
+        clearWalletSession();
+        return null;
+      }
+
+      const currentNetwork = await this.getCurrentNetwork();
+      saveWalletSession(address, currentNetwork ?? session.network, DEFAULT_SESSION_TTL_MS);
+      return address;
     } catch {
+      clearWalletSession();
       return null;
     }
   }
